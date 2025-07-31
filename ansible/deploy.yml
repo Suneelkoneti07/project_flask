@@ -1,0 +1,37 @@
+- hosts: flask
+  become: yes
+  vars:
+    app_dir: /home/ubuntu/flaskapp
+  tasks:
+    - name: Ensure required packages are installed
+      apt:
+        name: ['python3-pip', 'python3-venv']
+        state: present
+        update_cache: yes
+
+    - name: Create app directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+
+    - name: Copy app files to EC2
+      copy:
+        src: ../
+        dest: "{{ app_dir }}"
+        owner: ubuntu
+        group: ubuntu
+        mode: 0755
+
+    - name: Install Python requirements
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+
+    - name: Kill old Flask app if running
+      shell: |
+        pkill -f app.py || true
+
+    - name: Run Flask app
+      shell: |
+        nohup python3 {{ app_dir }}/app.py > flask.log 2>&1 &
