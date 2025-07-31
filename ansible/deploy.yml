@@ -1,37 +1,28 @@
-- hosts: flask
-  become: yes
-  vars:
-    app_dir: /home/ubuntu/flaskapp
+- name: Deploy Flask App
+  hosts: flask
+  become: true
   tasks:
-    - name: Ensure required packages are installed
+    - name: Ensure pip and venv are installed
       apt:
-        name: ['python3-pip', 'python3-venv']
+        name:
+          - python3-pip
+          - python3-venv
         state: present
-        update_cache: yes
+        update_cache: true
 
-    - name: Create app directory
-      file:
-        path: "{{ app_dir }}"
-        state: directory
-        owner: ubuntu
-        group: ubuntu
+    - name: Create a virtual environment
+      command: python3 -m venv /home/ubuntu/flaskenv
+      args:
+        creates: /home/ubuntu/flaskenv
 
-    - name: Copy app files to EC2
-      copy:
-        src: ../
-        dest: "{{ app_dir }}"
-        owner: ubuntu
-        group: ubuntu
-        mode: 0755
+    - name: Install Python requirements in venv
+      command: /home/ubuntu/flaskenv/bin/pip install -r /home/ubuntu/flaskapp/requirements.txt
+      environment:
+        PATH: "/home/ubuntu/flaskenv/bin:{{ ansible_env.PATH }}"
 
-    - name: Install Python requirements
-      pip:
-        requirements: "{{ app_dir }}/requirements.txt"
-
-    - name: Kill old Flask app if running
+    - name: Run the Flask app
       shell: |
-        pkill -f app.py || true
+        nohup /home/ubuntu/flaskenv/bin/python /home/ubuntu/flaskapp/app.py > /home/ubuntu/flaskapp/app.log 2>&1 &
+      args:
+        chdir: /home/ubuntu/flaskapp
 
-    - name: Run Flask app
-      shell: |
-        nohup python3 {{ app_dir }}/app.py > flask.log 2>&1 &
